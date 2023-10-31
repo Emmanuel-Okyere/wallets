@@ -1,4 +1,5 @@
 using System.Text;
+using Hubtel.Wallet.Api.Config;
 using Hubtel.Wallet.Api.Data;
 using Hubtel.Wallet.Api.Repositories.Implementations;
 using Hubtel.Wallet.Api.Repositories.Interfaces;
@@ -22,7 +23,12 @@ builder.Services.AddTransient<IWalletRepository, WalletRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IAuthenticationService, AuthenticationService>();
 builder.Services.AddTransient<IWalletService, WalletService>();
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add(new NotFound404NotFoundException());
+        options.Filters.Add(new Duplicate404ConflictException());
+        options.Filters.Add(new BadRequest400BadRequestException());
+    })
     .AddNewtonsoftJson(options =>
     {
         options.SerializerSettings.Converters.Add(new StringEnumConverter());
@@ -85,7 +91,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

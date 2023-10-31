@@ -26,7 +26,8 @@ public class AuthenticationService:IAuthenticationService
     public async Task<UserResponseDto> Register(RegisterRequestDto registerRequestDto)
     {
         _logger.LogInformation("Registration for {} initiated",registerRequestDto.PhoneNumber);
-        if (await _userRepository.GetUserByPhoneNumber(registerRequestDto.PhoneNumber) != null)
+        var phoneNumber = "0"+registerRequestDto.PhoneNumber[^9..];
+        if (await _userRepository.GetUserByPhoneNumber(phoneNumber) != null)
         {
             throw new Duplicate409Exception("user already exist");
         }
@@ -34,7 +35,7 @@ public class AuthenticationService:IAuthenticationService
         {
             throw new BadRequest400Exception("passwords do not match");
         }
-        CreatePasswordHashAndSalt(registerRequestDto.Password, out var passwordHash, out var passwordSalt);
+        CreatePasswordHashAndSalt(phoneNumber, out var passwordHash, out var passwordSalt);
         var newUser = new User
         {
             PhoneNumber = registerRequestDto.PhoneNumber,
@@ -43,7 +44,7 @@ public class AuthenticationService:IAuthenticationService
             PasswordSalt = passwordSalt
         };
         var savedUser = await _userRepository.AddUser(newUser);
-        var token = CreateToken(registerRequestDto.PhoneNumber);
+        var token = CreateToken(phoneNumber);
         return new UserResponseDto
         {
             Message = "user saved successfully",
@@ -56,7 +57,8 @@ public class AuthenticationService:IAuthenticationService
     public async Task<UserResponseDto> Login(LoginDto loginDto)
     {
         _logger.LogInformation("login in for {} initiated",loginDto.PhoneNumber);
-        var user = await _userRepository.GetUserByPhoneNumber(loginDto.PhoneNumber);
+        var phoneNumber = "0"+loginDto.PhoneNumber[^9..];
+        var user = await _userRepository.GetUserByPhoneNumber(phoneNumber);
         if (user == null)
         {
             _logger.LogInformation("Login in for {} failure, phone number does not exist",loginDto.PhoneNumber);
@@ -65,11 +67,11 @@ public class AuthenticationService:IAuthenticationService
 
         if (!VerifyPasswordHash(loginDto.Password, user.PasswordHash, user.PasswordSalt))
         {
-            _logger.LogInformation("Login in for {} failure, password incorrect",loginDto.PhoneNumber);
+            _logger.LogInformation("Login in for {} failure, password incorrect",phoneNumber);
             throw new BadRequest400Exception("password incorrect");
         }
-        var token = CreateToken(loginDto.PhoneNumber);
-        _logger.LogInformation("Login in  for {} completed",loginDto.PhoneNumber);
+        var token = CreateToken(phoneNumber);
+        _logger.LogInformation("Login in  for {} completed",phoneNumber);
         return new UserResponseDto
         {
             Message = "login success",

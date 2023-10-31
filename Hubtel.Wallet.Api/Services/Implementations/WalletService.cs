@@ -10,24 +10,34 @@ public class WalletService:IWalletService
 {
     private readonly IWalletRepository _walletRepository;
     private readonly IAuthenticationService _authenticationService;
+    private readonly ILogger<WalletService> _logger;
 
-    public WalletService(IWalletRepository walletRepository, IAuthenticationService authenticationService)
+    public WalletService(IWalletRepository walletRepository, IAuthenticationService authenticationService, ILogger<WalletService> logger)
     {
         _walletRepository = walletRepository;
         _authenticationService = authenticationService;
+        _logger = logger;
     }
 
     public async Task<MessageResponseDto> AddWallet(WalletRequestDto walletRequestDto, string authorizationHeader)
     {
-        if (!CheckForTypeOfCardWalletAgainstScheme(walletRequestDto.WalletScheme) || !CheckForTypeOfMobileWalletAgainstScheme(walletRequestDto.WalletScheme))
+        _logger.LogInformation("wallet creation for {} initiated",walletRequestDto.AccountNumber);
+        if (walletRequestDto.WalletType == WalletType.Card && !CheckForTypeOfCardWalletAgainstScheme(walletRequestDto.WalletScheme))
         {
-            throw new BadRequest400Exception("account type does not match account scheme");
+            _logger.LogInformation("wallet creation for {} initiated error: types not matching",walletRequestDto.AccountNumber);
+            throw new BadRequest400Exception("account type does not match account scheme accepted schemes are [Visa, Mastercard]");
+        }
+        if (walletRequestDto.WalletType == WalletType.MobileMoney && !CheckForTypeOfMobileWalletAgainstScheme(walletRequestDto.WalletScheme))
+        {
+            _logger.LogInformation("wallet creation for {} initiated error: types not matching",walletRequestDto.AccountNumber);
+            throw new BadRequest400Exception("account type does not match account scheme accepted schemes are [Mtn, Vodafone, AirtelTigo]");
         }
         var user = await _authenticationService.GetUserFromHeader(authorizationHeader);
         var accountNumber = walletRequestDto.AccountNumber;
         var userWallets = await _walletRepository.GetAllWalletsByUser(user);
         if (userWallets.Count == 5)
         {
+            _logger.LogInformation("wallet creation for {} initiated error: already has 5 wallets",walletRequestDto.AccountNumber);
             throw new BadRequest400Exception("user wallet addition maxed out");
         }
 
@@ -38,6 +48,7 @@ public class WalletService:IWalletService
         if (await _walletRepository.GetWalletByTypeAndAccountNumber(walletRequestDto.WalletType,
                 accountNumber) != null)
         {
+            _logger.LogInformation("wallet creation for {} initiated error: wallet already added",walletRequestDto.AccountNumber);
             throw new Duplicate409Exception("wallet already added");
         }
         
@@ -50,6 +61,7 @@ public class WalletService:IWalletService
             WalletScheme = walletRequestDto.WalletScheme
         };
         await _walletRepository.AddWallet(newWallet);
+        _logger.LogInformation("wallet creation for {} initiated success",walletRequestDto.AccountNumber);
         return new MessageResponseDto
         {
             Message = "wallet added successfully",
@@ -60,7 +72,6 @@ public class WalletService:IWalletService
     public async Task<List<Models.Wallet>> GetAllWallets(string authorizationHeader)
     {
         var user =await _authenticationService.GetUserFromHeader(authorizationHeader);
-        
         return await _walletRepository.GetAllWalletsByUser(user);
     }
 

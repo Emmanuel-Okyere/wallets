@@ -43,7 +43,7 @@ public class WalletService:IWalletService
 
         if (walletRequestDto.WalletType == WalletType.Card)
         {
-            accountNumber = walletRequestDto.AccountNumber[..6];
+            accountNumber = walletRequestDto.AccountNumber.Replace("-","")[..6];
         }
         if (await _walletRepository.GetWalletByTypeAndAccountNumber(walletRequestDto.WalletType,
                 accountNumber) != null)
@@ -97,6 +97,7 @@ public class WalletService:IWalletService
             throw new NotFound404Exception("wallet not found");
         }
 
+        await _walletRepository.DeleteWallet(wallet);
         return new MessageResponseDto
         {
             Message = "wallet deleted successfully",
